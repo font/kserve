@@ -20,8 +20,8 @@ import pytest
 from jwcrypto import jwe, jwk
 
 from kserve_storage.confidential import (
+    CDHSecretResolver,
     JWEDecryptor,
-    KBSSecretResolver,
     SecretResolutionError,
     SecretResolver,
 )
@@ -77,31 +77,31 @@ class TestSecretResolverContract:
             SecretResolver()
 
 
-# --- KBSSecretResolver ---
+# --- CDHSecretResolver ---
 
 
-class TestKBSSecretResolver:
-    def test_missing_kbs_url_raises(self, monkeypatch):
-        monkeypatch.delenv("KBS_URL", raising=False)
-        with pytest.raises(SecretResolutionError, match="KBS_URL"):
-            KBSSecretResolver()
+class TestCDHSecretResolver:
+    def test_default_cdh_addr(self, monkeypatch):
+        monkeypatch.delenv("CDH_ADDR", raising=False)
+        resolver = CDHSecretResolver()
+        assert resolver._cdh_addr == "http://127.0.0.1:8006"
 
-    def test_explicit_kbs_url(self):
-        resolver = KBSSecretResolver(kbs_url="http://localhost:8080")
-        assert resolver._kbs_url == "http://localhost:8080"
+    def test_explicit_cdh_addr(self):
+        resolver = CDHSecretResolver(cdh_addr="http://localhost:9999")
+        assert resolver._cdh_addr == "http://localhost:9999"
 
     def test_invalid_resource_id_raises(self):
-        resolver = KBSSecretResolver(kbs_url="http://localhost:8080")
-        with pytest.raises(SecretResolutionError, match="Invalid KBS resource ID"):
+        resolver = CDHSecretResolver()
+        with pytest.raises(SecretResolutionError, match="Invalid resource ID"):
             resolver.resolve_key("invalid-id")
 
     def test_valid_resource_id_format(self, monkeypatch, requests_mock):
         key_data = b"0123456789abcdef0123456789abcdef"
         requests_mock.get(
-            "http://localhost:8080/kbs/v0/resource/default/key/model-key",
+            "http://127.0.0.1:8006/cdh/resource/default/key/model-key",
             content=key_data,
         )
-        resolver = KBSSecretResolver(kbs_url="http://localhost:8080")
+        resolver = CDHSecretResolver()
         result = resolver.resolve_key("kbs:///default/key/model-key")
         assert result == key_data
 
