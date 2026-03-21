@@ -25,28 +25,28 @@ logger = logging.getLogger(__name__)
 # kbs:///<repo>/<type>/<tag>
 _KBS_RESOURCE_ID_RE = re.compile(r"^kbs:///(?P<repo>[^/]+)/(?P<type>[^/]+)/(?P<tag>[^/]+)$")
 
+_DEFAULT_CDH_ADDR = "http://127.0.0.1:8006"
 
-class KBSSecretResolver(SecretResolver):
-    """Resolves decryption keys from a Confidential Containers Key Broker Service (KBS).
 
-    The KBS URL is read from the ``KBS_URL`` environment variable.  Attestation
-    is handled transparently by the CoCo guest components / attestation-agent
-    at the transport level — this client simply issues an HTTP GET to the KBS
-    resource endpoint.
+class CDHSecretResolver(SecretResolver):
+    """Resolves decryption keys via the Confidential Data Hub (CDH).
+
+    CDH is a component of the Confidential Containers (CoCo) guest that runs
+    inside the TEE and provides a local API for retrieving secrets.  CDH handles
+    attestation transparently — it communicates with the configured Key Broker
+    Service (KBS) backend, regardless of the specific RATS protocol or KBS
+    implementation (e.g., Trustee, Intel Trust Authority).
+
+    The CDH address is read from the ``CDH_ADDR`` environment variable, defaulting
+    to ``http://127.0.0.1:8006``.
     """
 
-    def __init__(self, kbs_url: str | None = None, timeout: int = 30):
-        self._kbs_url = kbs_url or os.environ.get("KBS_URL")
-        if not self._kbs_url:
-            raise SecretResolutionError(
-                "KBS_URL environment variable is not set and no kbs_url was provided"
-            )
-        # Strip trailing slash for consistent URL construction
-        self._kbs_url = self._kbs_url.rstrip("/")
+    def __init__(self, cdh_addr: str | None = None, timeout: int = 30):
+        self._cdh_addr = (cdh_addr or os.environ.get("CDH_ADDR", _DEFAULT_CDH_ADDR)).rstrip("/")
         self._timeout = timeout
 
     def resolve_key(self, resource_id: str) -> bytes:
-        """Retrieve a decryption key from KBS for the given resource identifier.
+        """Retrieve a decryption key from CDH for the given resource identifier.
 
         Args:
             resource_id: A KBS resource URI in the format ``kbs:///<repo>/<type>/<tag>``.
@@ -55,13 +55,13 @@ class KBSSecretResolver(SecretResolver):
             The raw key bytes.
 
         Raises:
-            SecretResolutionError: If the resource ID is malformed, the KBS is
+            SecretResolutionError: If the resource ID is malformed, CDH is
                 unreachable, or the key cannot be retrieved.
         """
         match = _KBS_RESOURCE_ID_RE.match(resource_id)
         if not match:
             raise SecretResolutionError(
-                f"Invalid KBS resource ID format: {resource_id!r}, "
+                f"Invalid resource ID format: {resource_id!r}, "
                 "expected kbs:///<repo>/<type>/<tag>"
             )
 
@@ -69,13 +69,13 @@ class KBSSecretResolver(SecretResolver):
         rtype = match.group("type")
         tag = match.group("tag")
 
-        url = f"{self._kbs_url}/kbs/v0/resource/{repo}/{rtype}/{tag}"
-        logger.info("Requesting key from KBS: %s", url)
+        url = f"{self._cdh_addr}/cdh/resource/{repo}/{rtype}/{tag}"
+        logger.info("Requesting key from CDH: %s", url)
 
         try:
             response = requests.get(url, timeout=self._timeout)
             response.raise_for_status()
         except requests.RequestException as e:
-            raise SecretResolutionError(f"Failed to retrieve key from KBS: {e}") from e
+            raise SecretResolutionError(f"Failed to retrieve key from CDH: {e}") from e
 
         return response.content

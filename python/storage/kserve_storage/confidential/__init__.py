@@ -14,11 +14,11 @@
 
 from .secret_resolver import SecretResolver, SecretResolutionError
 from .jwe_decryptor import JWEDecryptor
-from .kbs_client import KBSSecretResolver
+from .cdh_client import CDHSecretResolver
 
 __all__ = [
     "SecretResolver",
     "SecretResolutionError",
     "JWEDecryptor",
-    "KBSSecretResolver",
+    "CDHSecretResolver",
 ]

@@ -27,32 +27,29 @@ except Exception as e:
 
 # Post-download decryption for confidential model serving
 if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
-    from kserve_storage.confidential import JWEDecryptor, KBSSecretResolver, SecretResolutionError
+    from kserve_storage.confidential import JWEDecryptor, CDHSecretResolver, SecretResolutionError
 
     resource_id = os.environ.get("CONFIDENTIAL_RESOURCE_ID", "")
-    kbs_url = os.environ.get("KBS_URL", "")
     logger.info("Confidential mode enabled, resource_id=%s", resource_id or "(auto-discovery)")
 
     try:
         # Select the appropriate SecretResolver based on available configuration.
-        # Currently only KBS is supported. Future alternatives:
+        # CDHSecretResolver talks to the Confidential Data Hub (CDH) running
+        # inside the TEE guest.  CDH handles attestation and key retrieval
+        # regardless of the underlying KBS/RATS implementation.
+        # Future alternatives for non-CoCo environments:
         # - File-based resolver: read key from a mounted Kubernetes Secret
         # - Environment variable resolver: key passed directly via env var
-        if not kbs_url:
-            logger.warning(
-                "KBS_URL is not set. Skipping decryption. "
-                "Set KBS_URL to enable key retrieval from a Key Broker Service."
-            )
-        else:
-            resolver = KBSSecretResolver()
-            decryptor = JWEDecryptor(resolver, resource_id=resource_id or None)
+        # - Cloud KMS resolver: retrieve key from a cloud provider KMS
+        resolver = CDHSecretResolver()
+        decryptor = JWEDecryptor(resolver, resource_id=resource_id or None)
 
-            total_decrypted = 0
-            for dest_path in dest_paths:
-                decrypted = decryptor.decrypt_directory(dest_path, resource_id=resource_id or None)
-                total_decrypted += len(decrypted)
+        total_decrypted = 0
+        for dest_path in dest_paths:
+            decrypted = decryptor.decrypt_directory(dest_path, resource_id=resource_id or None)
+            total_decrypted += len(decrypted)
 
-            logger.info("Confidential decryption complete: %d files decrypted", total_decrypted)
+        logger.info("Confidential decryption complete: %d files decrypted", total_decrypted)
     except Exception as e:
         logger.error("Confidential decryption failed: %s", e)
         sys.exit(1)

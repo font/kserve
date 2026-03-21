@@ -25,14 +25,14 @@ import os
 import sys
 
 from .jwe_decryptor import JWEDecryptor
-from .kbs_client import KBSSecretResolver
+from .cdh_client import CDHSecretResolver
 
 logger = logging.getLogger(__name__)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Decrypt JWE-encrypted model artifacts using KBS key resolution."
+        description="Decrypt JWE-encrypted model artifacts using CDH key resolution."
     )
     parser.add_argument(
         "--source-dir",
@@ -54,20 +54,8 @@ def main():
 
     resource_id = args.resource_id or None
 
-    # Select the appropriate SecretResolver based on available configuration.
-    # Currently only KBS is supported. Future alternatives:
-    # - File-based resolver: read key from a mounted Kubernetes Secret
-    # - Environment variable resolver: key passed directly via env var
-    kbs_url = os.environ.get("KBS_URL", "")
-    if not kbs_url:
-        logger.error(
-            "KBS_URL is not set. Cannot decrypt without a key source. "
-            "Set KBS_URL to enable key retrieval from a Key Broker Service."
-        )
-        sys.exit(1)
-
     try:
-        resolver = KBSSecretResolver()
+        resolver = CDHSecretResolver()
         decryptor = JWEDecryptor(resolver, resource_id=resource_id)
         decrypted = decryptor.decrypt_directory(args.source_dir, resource_id=resource_id)
         logger.info("Decrypted %d files in %s", len(decrypted), args.source_dir)
