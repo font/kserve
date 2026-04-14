@@ -1,0 +1,18 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-s3-confidential
+  namespace: kserve-test
+spec:
+  predictor:
+    serviceAccountName: sa-s3
+    runtimeClassName: kata-remote
+    annotations:
+      io.katacontainers.config.hypervisor.machine_type: Standard_DC2as_v5
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "s3://models/sklearn"
+      confidential:
+        enabled: true
+        resourceId: "kbs:///default/kbsres1/model-key"

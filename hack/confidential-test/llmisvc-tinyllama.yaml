@@ -1,0 +1,13 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: confidential-tinyllama
+  namespace: kserve-test
+spec:
+  baseRefs:
+  - name: kserve-config-llm-decode-template
+  model:
+    uri: hf://TinyLlama/TinyLlama-1.1B-Chat-v1.0
+    confidential:
+      enabled: true
+      resourceId: "kbs:///default/kbsres1/model-key"

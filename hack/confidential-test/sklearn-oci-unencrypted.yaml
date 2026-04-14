@@ -1,0 +1,14 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-oci-coco
+  namespace: kserve-test
+spec:
+  predictor:
+    runtimeClassName: kata-remote
+    annotations:
+      io.katacontainers.config.hypervisor.machine_type: Standard_DC2as_v5
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "oci://quay.io/ifont/sklearn-model:unencrypted"
